@@ -6,11 +6,24 @@ const port = new SerialPort({
   path: 'COM6',
   baudRate: 9600,
 });
+function separarString(dados) {
+  const regex = /^MSG(\d+)T([\d.]+)w([01])x/;
+  const match = dados.match(regex);
 
+  if (match) {
+      const id_sensor = match[1];  // Número entre "MSG" e "T"
+      const temperatura = parseFloat(match[2]); // Número entre "T" e "w"
+      const level = parseInt(match[3]); // Número entre "w" e "x"
+
+      return { id_sensor, temperatura, level };
+  } else {
+      throw new Error("Formato da string inválido.");
+  }
+}
 // Função para fazer a requisição HTTP
 async function fazerRequisicaoHTTP(dados) {
   try {
-    const resposta = await axios.post('https://exemplo.com/api', { dados });
+    const resposta = await axios.post('https://serverjacaria-production.up.railway.app/sensors/updateSensor', { dados });
     console.log('Resposta da API:', resposta.data);
   } catch (erro) {
     console.error('Erro na requisição HTTP:', erro.message);
@@ -42,12 +55,21 @@ port.on('data', (dados) => {
 
     // Remove o prefixo "MSG:" (opcional)
     const conteudo = mensagem.slice(4).trim();
-
+    const { id_sensor, temperatura, level } = separarString(mensagem);
+    
+    
+    let form = {
+      temperature_ds18b20: temperatura,
+      id_sensor: id_sensor,
+      level:level,
+      sensor_type: "arduino",
+    }
+    console.log(form)
     // Calcula o tempo desde a última mensagem válida
     calcularTempoEntreMensagens();
 
     // Faz a requisição HTTP com os dados recebidos
-    //fazerRequisicaoHTTP(conteudo);
+    fazerRequisicaoHTTP(form);
   } else {
     //console.log('Mensagem ignorada:', mensagem); // Mensagens sem "MSG:" são ignoradas
   }
